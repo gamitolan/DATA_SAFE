@@ -1,0 +1,8 @@
+{
+  "ofs_progid": "Schneider-Aut.OFS",
+  "ofs_node": "localhost",
+  "group_name": "BackupRestoreGroup",
+  "godsharp_netapi_lib_dir": "C:\\DNET\\godsharp.opc.da.opcnetapi.2022.308.10\\lib\\net46",
+  "godsharp_base_lib_dir": "C:\\DNET\\godsharp.opc.da.2022.308.10\\lib\\net46",
+  "titanium_lib_dir": "C:\\DNET\\titaniumas.opc.client.1.0.2\\lib\\net40"
+}
