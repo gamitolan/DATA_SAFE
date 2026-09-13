@@ -225,7 +225,9 @@ class OFSClient:
             ok = self._client.Connect()
         except Exception as exc:
             self._client = None
-            raise OFSError(f"Could not connect to OFS ({self.progid} @ {self.node}): {exc}") from exc
+            friendly = titanium_browser.friendly_connection_error(exc)
+            raise OFSError(friendly or
+                            f"Could not connect to OFS ({self.progid} @ {self.node}): {exc}") from exc
 
         if not ok:
             self._client = None

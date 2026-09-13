@@ -34,6 +34,23 @@ class TitaniumBrowseError(Exception):
     """Raised when the TitaniumAS-based browse fails."""
 
 
+def friendly_connection_error(exc):
+    """
+    Translates a raw COM "class not registered" exception - the
+    signature for "this ProgID doesn't exist on this machine", i.e.
+    OFS isn't installed at all - into a clear, non-technical message.
+    Returns None for any other kind of exception, so the caller can
+    fall back to a more detailed technical message for genuinely
+    unexpected failures.
+    """
+    text = str(exc)
+    if "80040154" in text or "REGDB_E_CLASSNOTREG" in text or "Class not registered" in text:
+        return ("Could not connect to OFS (OPC Factory Server). This usually means "
+                "OFS is not installed on this computer - please install Schneider "
+                "Electric's OFS and try again.")
+    return None
+
+
 def _browse_thread_body(lib_dir, progid, node, result, progress=None, root_branch=""):
     import clr
     import sys
@@ -119,7 +136,8 @@ def browse_all_items(lib_dir, progid, node, progress=None, device_alias=None):
     t.join()
 
     if "error" in result:
-        raise TitaniumBrowseError(f"TitaniumAS browse failed: {result['error']}")
+        friendly = friendly_connection_error(result["error"])
+        raise TitaniumBrowseError(friendly or f"TitaniumAS browse failed: {result['error']}")
     return result.get("items", [])
 
 
@@ -188,5 +206,6 @@ def list_device_aliases(lib_dir, progid, node):
     t.join()
 
     if "error" in result:
-        raise TitaniumBrowseError(f"TitaniumAS device list failed: {result['error']}")
+        friendly = friendly_connection_error(result["error"])
+        raise TitaniumBrowseError(friendly or f"TitaniumAS device list failed: {result['error']}")
     return result.get("aliases", [])
