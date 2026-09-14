@@ -34,8 +34,8 @@ class App:
     def __init__(self, root):
         self.root = root
         root.title("M580 Tag Backup / Restore (via OFS)")
-        root.geometry("640x640")
-        root.minsize(600, 560)
+        root.geometry("640x700")
+        root.minsize(600, 620)
 
         self.mode = tk.StringVar(value="backup")
         self.backup_out_path = tk.StringVar()
