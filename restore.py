@@ -8,10 +8,16 @@ back - classifying by the actual per-item Write() result.
 Before attempting anything, tags are excluded from the write list if:
   - the tag name contains "#" (OFS's own internal/system items, e.g.
     "#OFSStatus", "#ClientAlive" - never meant to be restored)
-  - the tag is explicitly listed in EXCLUDED_EXACT_TAGS (e.g.
-    "M580!BMEP58_ECPU_EXT", the CPU data structure - parts of it are
-    not writable, so it's excluded wholesale)
   - the tag's recorded access rights mark it read-only
+
+M580!BMEP58_ECPU_EXT (the CPU data structure) was previously excluded
+wholesale by name here too, since some of its fields are read-only and
+a single bad item used to be able to disrupt an entire write batch
+around it. That's no longer true: write() now retries every failed
+item individually regardless of batch size (see ofs_client.py), so a
+genuinely read-only field inside this structure just fails cleanly and
+gets reported like any other write failure - there's no reason left to
+special-case this tag, so it's treated like everything else now.
 
 Reports a summary via the `log` callback (everything - excluded,
 read-only, bind failures, and write outcomes), but the persistent
@@ -23,12 +29,6 @@ Only writes anything after the `confirm` callback returns True.
 
 from ofs_client import OFSClient
 import excel_io
-
-# Tags excluded from restore wholesale, regardless of access rights.
-# M580!BMEP58_ECPU_EXT is the CPU data structure - parts of its fields
-# are not writable, so the whole tag is excluded rather than attempted
-# and partially failing.
-EXCLUDED_EXACT_TAGS = {"M580!BMEP58_ECPU_EXT"}
 
 
 def _default_confirm(tag_value_pairs):
@@ -54,14 +54,9 @@ def _is_writable(access_rights):
 def _is_excluded_by_name(tag):
     """
     Tags never eligible for restore regardless of access rights:
-    OFS's own internal/system items (any tag containing "#"), and
-    anything explicitly listed in EXCLUDED_EXACT_TAGS.
+    OFS's own internal/system items (any tag containing "#").
     """
-    if "#" in tag:
-        return True
-    if tag in EXCLUDED_EXACT_TAGS:
-        return True
-    return False
+    return "#" in tag
 
 
 def run_restore(config, backup_path, report_path=None, log=print, confirm=None, progress=None):
@@ -113,7 +108,7 @@ def run_restore(config, backup_path, report_path=None, log=print, confirm=None, 
 
         log("\n=== Restore summary ===")
         log(f"  Ready to write   : {len(ready_to_write)}")
-        log(f"  Skipped (excluded by name - system items / CPU structure): {len(skipped_excluded)}")
+        log(f"  Skipped (excluded by name - system items): {len(skipped_excluded)}")
         log(f"  Skipped (read-only, recorded at backup time): {len(skipped_readonly)}")
         log(f"  Failed to bind (renamed/removed/retyped - CANNOT be restored): {len(failed_bind)}")
 
