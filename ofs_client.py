@@ -334,7 +334,7 @@ class OFSClient:
             progress(min(start + batch_size, total), total)
         return results
 
-    def read(self, item_ids, progress=None, batch_size=500):
+    def read(self, item_ids, progress=None, batch_size=50):
         """
         Reads a list of item_ids (must already be bound via
         bind_items). Returns (values, errors, value_types), all
@@ -354,6 +354,13 @@ class OFSClient:
         one-at-a-time for that chunk so a single bad item (or an
         unexpected batch-call issue) doesn't take the whole chunk
         down with it.
+
+        batch_size defaults to 50, matching write()'s empirically-
+        found sweet spot on a large real project: a larger batch (500
+        was the original default) let a single genuinely-bad item
+        disrupt the underlying request stream for its neighbors in
+        the same batch, occasionally causing an entire batch to fail
+        together rather than just that one item.
 
         progress(current, total) is called after each chunk.
         """

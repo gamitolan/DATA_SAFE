@@ -1,8 +1,10 @@
 """
 backup.py
-Discovers every tag OFS currently knows about (via GodSharp's native
+Discovers every tag OFS currently knows about (via TitaniumAS's native
 browse) and reads their values from the M580 CPU, writing the result
 to a backup workbook. No externally supplied tag list is used.
+Function block instance members are always excluded - see
+_is_fb_instance_member() and run_backup() for why.
 """
 
 from ofs_client import OFSClient
@@ -33,16 +35,15 @@ def _is_fb_instance_member(item_id):
     """
     A "." in the leaf name (the part after the last "!" branch
     separator) indicates a member of a function block instance, e.g.
-    "M580!TABLE_BIT_COMP_V1_1.SRC" - not a plain tag. Plain tags never
-    contain a dot in their name (e.g. "M580!BMEP58_ECPU_EXT"). Only
-    plain tags are backed up.
+    "M580!TABLE_BIT_COMP_V1_1.SRC" - not a plain tag. These are always
+    excluded from discovery, unconditionally - see run_backup()'s
+    docstring for why this is no longer a user-facing option.
     """
     leaf = item_id.rsplit("!", 1)[-1]
     return "." in leaf
 
 
-def run_backup(config, output_path, log=print, progress=None, include_fb_members=False,
-                device_alias=None):
+def run_backup(config, output_path, log=print, progress=None, device_alias=None):
     """
     log: callable(str) used for progress/status messages, so callers
     (CLI, GUI, etc.) can route output wherever they like. Defaults to
@@ -50,18 +51,25 @@ def run_backup(config, output_path, log=print, progress=None, include_fb_members
     progress: optional callable(phase: str, current: int, total: int),
     called periodically during binding, reading, and access-rights
     lookup, so a caller can show live chunk-by-chunk progress.
-    include_fb_members: if False (default), function block instance
-    members (item IDs with a "." in the leaf name, e.g.
-    "M580!SomeInstance.SomeField") are excluded from discovery
-    entirely. If True, they're included like any other tag - fields
-    that genuinely can't be read (e.g. VAR_IN_OUT reference
-    parameters) will simply show up as bind/read failures, the same
-    as any other tag that fails for any other reason; nothing special
-    is needed to handle that.
     device_alias: if given, scopes discovery to just that OFS device
     alias (see OFSClient.list_device_aliases()) instead of every
     device configured in OFS - useful when OFS has more than one
     device and only one is wanted for this backup.
+
+    Function block instance members (item IDs with a "." in the leaf
+    name, e.g. "M580!SomeInstance.SomeField") are always excluded from
+    discovery. This used to be a user-facing "include FB instance
+    data" option, removed after discovering it could never do what it
+    was meant to: a function block instance's PRIVATE internal
+    variables are never published to the XVM file or the CPU's Data
+    Dictionary at all, regardless of Control Expert's "make internal
+    variables accessible" project setting - that setting only affects
+    whether the application's OWN code can reference them elsewhere in
+    the project, not whether OFS (or any external tool) can see them.
+    The dotted members that DID appear when this option was enabled
+    were only ever the block's public I/O interface (inputs, outputs,
+    in-outs) - never the private internals the option was meant to
+    capture - so there was no real case left for keeping it.
     """
     if progress is None:
         progress = lambda phase, current, total: None
@@ -80,10 +88,7 @@ def run_backup(config, output_path, log=print, progress=None, include_fb_members
             progress=lambda current: progress("Discovering", current, 0),
             device_alias=device_alias)
         progress("Discovered", len(all_discovered), len(all_discovered))
-        if include_fb_members:
-            item_ids = all_discovered
-        else:
-            item_ids = [iid for iid in all_discovered if not _is_fb_instance_member(iid)]
+        item_ids = [iid for iid in all_discovered if not _is_fb_instance_member(iid)]
         excluded_count = len(all_discovered) - len(item_ids)
         log(f"Discovered {len(all_discovered)} item(s).")
         if excluded_count:

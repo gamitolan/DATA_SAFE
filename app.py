@@ -42,7 +42,6 @@ class App:
         self.restore_backup_path = tk.StringVar()
         self.restore_report_path = tk.StringVar()
         self.status_text = tk.StringVar(value="Idle.")
-        self.include_fb_members = tk.BooleanVar(value=False)
         self.device_alias = tk.StringVar(value="(All devices)")
 
         # State for the "..." animation shown during dead time before a
@@ -96,10 +95,6 @@ class App:
         self._file_row(self.backup_frame, "Backup output file (.xlsx):",
                         self.backup_out_path, self._browse_backup_out)
 
-        ttk.Checkbutton(self.backup_frame,
-                         text="Include function block instance data (slower; some fields will "
-                              "predictably fail to read/write - see log)",
-                         variable=self.include_fb_members).pack(anchor="w", padx=8, pady=(0, 4))
         ttk.Label(self.backup_frame,
                   text="Tags are discovered directly from OFS - no input file needed.",
                   foreground="gray").pack(anchor="w", padx=8, pady=(0, 6))
@@ -353,7 +348,6 @@ class App:
                 device_alias = None
             backup.run_backup(config, self.backup_out_path.get(),
                                log=self._worker_log, progress=self._worker_progress,
-                               include_fb_members=self.include_fb_members.get(),
                                device_alias=device_alias)
             self._queue.put(("done",))
         except Exception as exc:  # noqa: BLE001 - surface any failure to the operator

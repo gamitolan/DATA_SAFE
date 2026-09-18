@@ -11,6 +11,7 @@ Usage:
 """
 
 import argparse
+import os
 import sys
 
 from config import load_config, write_default_config
@@ -22,8 +23,9 @@ def main():
     parser = argparse.ArgumentParser(
         description="Backup/restore M580 tag values by name via OFS."
     )
-    parser.add_argument("--config", default="config.json",
-                         help="Path to config.json (default: ./config.json)")
+    parser.add_argument("--config", default=None,
+                         help="Path to config.json (default: next to this app, not the "
+                              "current working directory)")
     sub = parser.add_subparsers(dest="command", required=True)
 
     p_init = sub.add_parser("init-config", help="Write a starter config.json")
@@ -31,9 +33,6 @@ def main():
     p_backup = sub.add_parser("backup", help="Discover tags from OFS and back up their values")
     p_backup.add_argument("--out", required=True,
                            help="Output backup workbook path")
-    p_backup.add_argument("--include-fb-members", action="store_true",
-                           help="Include function block instance members "
-                                "(e.g. 'InstanceName.Member') - excluded by default")
 
     p_restore = sub.add_parser("restore", help="Restore tag values to the CPU")
     p_restore.add_argument("--backup", required=True,
@@ -44,14 +43,16 @@ def main():
     args = parser.parse_args()
 
     if args.command == "init-config":
+        from config import get_app_dir
+        resolved_path = args.config or os.path.join(get_app_dir(), "config.json")
         write_default_config(args.config)
-        print(f"Wrote starter config to {args.config}.")
+        print(f"Wrote starter config to {resolved_path}.")
         return
 
     config = load_config(args.config)
 
     if args.command == "backup":
-        backup.run_backup(config, args.out, include_fb_members=args.include_fb_members)
+        backup.run_backup(config, args.out)
     elif args.command == "restore":
         restore.run_restore(config, args.backup, args.report)
 
